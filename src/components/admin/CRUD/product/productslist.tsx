@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import Header from "../../Header/AdminHeader"
 import Sidebar from "../../sidebar"
+import { resolveRoleFromToken } from "../../../../utils/auth"
 
 type ProductRow = {
   id: string | number
@@ -165,6 +166,22 @@ const STYLES = `
   text-decoration: underline;
 }
 
+.actionDelete {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionDelete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .checkboxCell {
   width: 40px;
 }
@@ -178,7 +195,9 @@ const STYLES = `
 
 export default function ProductsList() {
   const [rows, setRows] = useState<ProductRow[]>([])
+  const [deletingId, setDeletingId] = useState<string | number | null>(null)
   const imageBaseUrl = "http://localhost:8080/uploads/"
+  const apiBaseUrl = "http://localhost:8080/api/products"
 
   const resolveImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return ""
@@ -189,7 +208,7 @@ export default function ProductsList() {
   useEffect(() => {
     let isMounted = true
 
-    fetch("http://localhost:8080/api/products")
+    fetch(apiBaseUrl)
       .then((response) => {
         if (!response.ok) {
           throw new Error("Failed to load products")
@@ -210,7 +229,66 @@ export default function ProductsList() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [apiBaseUrl])
+
+  const handleDelete = async (id: string | number) => {
+    const confirmed = window.confirm("Delete this product?")
+    if (!confirmed) return
+
+    const token = localStorage.getItem("token")
+    if (!token) {
+      alert("No token found. Please login again.")
+      return
+    }
+    const cleanToken = token.trim().replace(/^"+|"+$/g, "")
+    const tokenRole = resolveRoleFromToken(cleanToken)
+    if (tokenRole && tokenRole !== "admin") {
+      alert("You are not authorized to delete products.")
+      return
+    }
+
+    try {
+      setDeletingId(id)
+      const res = await fetch(`${apiBaseUrl}/${id}`, {
+        method: "DELETE",
+        headers: {
+          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+        },
+      })
+
+      if (!res.ok) {
+        let details = ""
+        try {
+          const contentType = res.headers.get("content-type") ?? ""
+          if (contentType.includes("application/json")) {
+            const errJson = await res.json()
+            details = typeof errJson === "string" ? errJson : JSON.stringify(errJson)
+          } else {
+            details = await res.text()
+          }
+        } catch {
+          // ignore parsing errors
+        }
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(
+            `Not authorized to delete this product (status ${res.status})${
+              details ? `: ${details}` : ""
+            }`
+          )
+        }
+        throw new Error(
+          `Failed to delete product (status ${res.status})${details ? `: ${details}` : ""}`
+        )
+      }
+
+      setRows((prev) => prev.filter((row) => row.id !== id))
+    } catch (error) {
+      console.error(error)
+      alert((error as Error).message || "Unable to delete product")
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className="adminPage">
@@ -234,6 +312,7 @@ export default function ProductsList() {
                 <thead>
                   <tr>
                     <th className="checkboxCell"> </th>
+                    <th>S.No</th>
                     <th>Product Name</th>
                     <th>Category</th>
                     <th>Price</th>
@@ -243,11 +322,12 @@ export default function ProductsList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {rows.map((row, index) => (
                     <tr key={row.id}>
                       <td className="checkboxCell">
                         <input type="checkbox" />
                       </td>
+                      <td>{index + 1}</td>
                       <td>
                         <div className="row">
                           {resolveImageUrl(row.imageUrl) ? (
@@ -285,9 +365,13 @@ export default function ProductsList() {
                         })()}
                       </td>
                       <td>
-                        <a className="actionLink" href="#">
-                          Det
-                        </a>
+                        <button
+                          className="actionDelete"
+                          onClick={() => handleDelete(row.id)}
+                          disabled={deletingId === row.id}
+                        >
+                          {deletingId === row.id ? "Deleting..." : "Del"}
+                        </button>
                       </td>
                     </tr>
                   ))}

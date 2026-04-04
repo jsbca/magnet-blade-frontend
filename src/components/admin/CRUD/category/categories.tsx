@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import Header from "../../Header/AdminHeader"
 import Sidebar from "../../sidebar"
 import { Link } from "react-router-dom"
@@ -6,9 +7,7 @@ type CategoryRow = {
   id: string
   name: string
   icon: string
-  quantity: string
-  sale: string
-  startDate: string
+  description: string
 }
 
 const STYLES = `
@@ -207,19 +206,111 @@ const STYLES = `
 
 `
 
-const ROWS: CategoryRow[] = [
-  { id: "c1", name: "Dried food", icon: "🥫", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c2", name: "Wet food", icon: "🥣", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c3", name: "Supplemental food", icon: "🍲", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c4", name: "Puppy food", icon: "🐶", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c5", name: "Food for adult dogs", icon: "🐕", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c6", name: "Food for elderly dogs", icon: "🐕‍🦺", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c7", name: "Kitten food", icon: "🐱", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c8", name: "Food for adult cats", icon: "🐈", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-  { id: "c9", name: "Food for elderly cats", icon: "🐈‍⬛", quantity: "1,638", sale: "20", startDate: "20 Nov 2023" },
-]
+const DEFAULT_ICON = "🏷️"
+
+const formatDate = (value: unknown) => {
+  if (!value) return "—"
+  const date = value instanceof Date ? value : new Date(String(value))
+  if (Number.isNaN(date.getTime())) return "—"
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+const normalizeCategories = (input: unknown): CategoryRow[] => {
+  if (!Array.isArray(input)) return []
+
+  return input
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return {
+          id: `cat-${index}-${item}`,
+          name: item,
+          icon: DEFAULT_ICON,
+          description: "—",
+        }
+      }
+
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>
+        const name = String(
+          record.name ??
+            record.title ??
+            record.category ??
+            record.categoryName ??
+            record.category_name ??
+            "Untitled category"
+        )
+
+        const descriptionRaw =
+          record.description ??
+          record.desc ??
+          record.details ??
+          record.summary ??
+          record.notes ??
+          ""
+
+        return {
+          id: String(record.id ?? record._id ?? record.slug ?? `cat-${index}-${name}`),
+          name,
+          icon: String(record.icon ?? record.emoji ?? record.symbol ?? DEFAULT_ICON),
+          description: descriptionRaw ? String(descriptionRaw).trim() : "—",
+        }
+      }
+
+      return null
+    })
+    .filter((row): row is CategoryRow => Boolean(row))
+}
 
 export default function Categories() {
+  const [rows, setRows] = useState<CategoryRow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadCategories = async () => {
+      const token = localStorage.getItem("token")
+      const cleanToken = token ? token.trim().replace(/^"+|"+$/g, "") : ""
+      const res = await fetch("http://localhost:8080/api/categories", {
+        headers: {
+          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+        },
+      })
+      if (!res.ok) {
+        throw new Error("Failed to load categories")
+      }
+      return res.json()
+    }
+
+    loadCategories()
+      .then((data) => {
+        if (isMounted) {
+          setRows(normalizeCategories(data))
+          setHasError(false)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setRows([])
+          setHasError(true)
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
     <div className="adminPage">
       <style>{STYLES}</style>
@@ -257,15 +348,12 @@ export default function Categories() {
                 <thead>
                   <tr>
                     <th>Category</th>
-                    <th>Icon</th>
-                    <th>Quantity</th>
-                    <th>Sale</th>
-                    <th>Start date</th>
+                    <th>Description</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ROWS.map((row) => (
+                  {rows.map((row) => (
                     <tr key={row.id}>
                       <td>
                         <div className="row">
@@ -273,19 +361,29 @@ export default function Categories() {
                           <strong>{row.name}</strong>
                         </div>
                       </td>
-                      <td className="muted">{row.icon}</td>
-                      <td>{row.quantity}</td>
-                      <td className="muted">{row.sale}</td>
-                      <td className="muted">{row.startDate}</td>
+                      <td className="muted">{row.description || "—"}</td>
                       <td>
                         <span className="actionsCell">
-                          <button className="actionIcon view" aria-label="View">👁</button>
                           <button className="actionIcon edit" aria-label="Edit">✎</button>
                           <button className="actionIcon delete" aria-label="Delete">🗑</button>
                         </span>
                       </td>
                     </tr>
                   ))}
+                  {!isLoading && rows.length === 0 && (
+                    <tr>
+                      <td className="muted" colSpan={3}>
+                        {hasError ? "Unable to load categories." : "No categories found."}
+                      </td>
+                    </tr>
+                  )}
+                  {isLoading && (
+                    <tr>
+                      <td className="muted" colSpan={3}>
+                        Loading categories...
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

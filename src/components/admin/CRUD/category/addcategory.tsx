@@ -1,3 +1,4 @@
+import { useState } from "react"
 import Header from "../../Header/AdminHeader"
 import Sidebar from "../../sidebar"
 
@@ -115,6 +116,68 @@ const STYLES = `
 `
 
 export default function AddCategory() {
+  const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!name.trim()) {
+      alert("Please enter a category name.")
+      return
+    }
+    try {
+      setIsSubmitting(true)
+      const token = localStorage.getItem("token")
+      if (!token) {
+        alert("No token found. Please login again.")
+        return
+      }
+      const cleanToken = token.trim().replace(/^"+|"+$/g, "")
+
+      const res = await fetch("http://localhost:8080/api/categories", {
+        method: "POST",
+        headers: {
+          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+        }),
+      })
+
+      if (!res.ok) {
+        let details = ""
+        try {
+          const contentType = res.headers.get("content-type") ?? ""
+          if (contentType.includes("application/json")) {
+            const errJson = await res.json()
+            details = typeof errJson === "string" ? errJson : JSON.stringify(errJson)
+          } else {
+            details = await res.text()
+          }
+        } catch {
+          // ignore parsing errors
+        }
+        throw new Error(
+          `Failed to add category (status ${res.status})${details ? `: ${details}` : ""}`
+        )
+      }
+
+      alert("Category added successfully")
+      setName("")
+      setDescription("")
+    } catch (error) {
+      console.error(error)
+      alert((error as Error).message || "Unable to add category")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className="adminPage">
       <style>{STYLES}</style>
@@ -127,25 +190,43 @@ export default function AddCategory() {
             <div className="breadcrumb">Dashboard &gt; Category &gt; Add Category</div>
           </div>
 
-          <div className="card">
+          <form className="card" onSubmit={handleSubmit}>
             <label className="label">
               Category name <span style={{ color: "#ef4444" }}>*</span>
             </label>
-            <input className="input" placeholder="Category name" />
+            <input
+              className="input"
+              placeholder="Category name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
 
-            <label className="label">Upload images</label>
-            <div className="uploadBox">
-              <div style={{ fontSize: "24px" }}>☁</div>
-              <div>
-                Drop your images here or select <span style={{ textDecoration: "underline" }}>click to browse</span>
-              </div>
-            </div>
+            <label className="label">Description</label>
+            <textarea
+              className="input"
+              placeholder="All electronic items"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              style={{ resize: "vertical" }}
+            />
 
             <div className="actionsRow">
-              <button className="primaryBtn">Add Category</button>
-              <button className="ghostBtn">Cancel</button>
+              <button className="primaryBtn" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Adding..." : "Add Category"}
+              </button>
+              <button
+                className="ghostBtn"
+                type="button"
+                onClick={() => {
+                  setName("")
+                  setDescription("")
+                }}
+              >
+                Cancel
+              </button>
             </div>
-          </div>
+          </form>
         </main>
       </div>
     </div>

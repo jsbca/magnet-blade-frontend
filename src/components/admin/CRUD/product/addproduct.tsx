@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Header from "../../Header/AdminHeader"
 import Sidebar from "../../sidebar"
 import { resolveRoleFromToken } from "../../../../utils/auth"
@@ -175,6 +175,7 @@ export default function AddProduct() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>("")
+  const [categories, setCategories] = useState<string[]>([])
 
   const decodeJwtPayload = (token: string) => {
     try {
@@ -294,6 +295,68 @@ export default function AddProduct() {
     }
   }
 
+  useEffect(() => {
+    let isMounted = true
+
+    const normalizeCategories = (list: unknown[]) =>
+      Array.from(
+        new Set(
+          list
+            .map((item) => {
+              if (typeof item === "string") return item
+              if (item && typeof item === "object") {
+                const record = item as Record<string, unknown>
+                return String(
+                  record.name ??
+                    record.title ??
+                    record.category ??
+                    record.categoryName ??
+                    record.category_name ??
+                    ""
+                )
+              }
+              return ""
+            })
+            .map((value) => value.trim())
+            .filter(Boolean)
+        )
+      )
+
+    const loadCategories = async () => {
+      const token = localStorage.getItem("token")
+      const cleanToken = token ? token.trim().replace(/^"+|"+$/g, "") : ""
+      const res = await fetch("http://localhost:8080/api/categories", {
+        headers: {
+          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+        },
+      })
+      if (!res.ok) {
+        throw new Error("Failed to load categories")
+      }
+      const data = await res.json()
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid categories response")
+      }
+      return normalizeCategories(data)
+    }
+
+    loadCategories()
+      .then((list) => {
+        if (isMounted) {
+          setCategories(list)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setCategories([])
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
     <div className="adminPage">
       <style>{STYLES}</style>
@@ -331,13 +394,21 @@ export default function AddProduct() {
                 </div>
                 <label className="field" style={{ marginTop: "12px" }}>
                   <span className="label">Category</span>
-                  <input
-                    className="input"
+                  <select
+                    className="select"
                     name="category"
                     value={form.category}
                     onChange={handleChange}
-                    placeholder="Women Cloths"
-                  />
+                  >
+                    <option value="" disabled>
+                      Select category
+                    </option>
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
                 <div className="cardTitle" style={{ marginTop: "18px" }}>
