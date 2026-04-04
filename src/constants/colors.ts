@@ -1,0 +1,8 @@
+export const APP_BACKGROUND = '#ebefac'
+export const HEADER_BACKGROUND = 'rgb(227, 230, 220)'
+export const HEADER_TEXT = 'rgb(0, 0, 0)'
+export const FOOTER_BACKGROUND = 'rgba(178, 204, 111)'
+export const FOOTER_TEXT = 'rgb(0, 0, 0)'
+export const FOOTER_LINK = '/'
+export const FOOTER_LINK_LABEL = 'Viiite'
+export const CARD_BACKGROUND = 'rgb(254, 255, 255)'
