@@ -1,6 +1,8 @@
 import logo from "../../assets/Logo.png"
 import { Link } from "react-router-dom"
 import { useEffect, useState } from "react"
+import { OFFERS } from "./SecondaryHeader"
+
 
 const HEADER_TITLE = "Magnet Blade Store"
 const HEADER_STYLES = `
@@ -23,37 +25,6 @@ const HEADER_STYLES = `
   background-color: #ffffff;
   color: #111827;
   padding: 0 32px;
-}
-
-.announcementBar {
-  width: 100%;
-  background: #8eada2;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.announcementButton {
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  background: transparent;
-  color: #ffffff;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.announcementText {
-  letter-spacing: 0.01em;
 }
 
 .brand {
@@ -229,11 +200,6 @@ const HEADER_STYLES = `
     padding-bottom: 12px;
   }
 
-  .announcementBar {
-    font-size: 12px;
-    gap: 10px;
-  }
-
   .actions {
     width: 100%;
     justify-content: center;
@@ -253,43 +219,27 @@ type HeaderProps = {
 }
 
 export default function Header({ showAuth = true }: HeaderProps) {
-  const offers = [
-    "Chumbak Express - Same day delivery in Bangalore",
-    "Flat 20% off on all home decor orders above ₹999",
-    "Free shipping on prepaid orders this weekend",
-  ]
-  const [offerIndex, setOfferIndex] = useState(0)
+  const [cartCount, setCartCount] = useState(0)
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setOfferIndex((prev) => (prev + 1) % offers.length)
-    }, 3500)
-    return () => clearInterval(timer)
-  }, [offers.length])
+    const readCount = () => {
+      const raw = Number(localStorage.getItem("cartCount") ?? "0")
+      setCartCount(Number.isFinite(raw) ? raw : 0)
+    }
+    readCount()
 
+    const handleUpdate = () => readCount()
+    window.addEventListener("storage", handleUpdate)
+    window.addEventListener("cart-updated", handleUpdate as EventListener)
+    return () => {
+      window.removeEventListener("storage", handleUpdate)
+      window.removeEventListener("cart-updated", handleUpdate as EventListener)
+    }
+  }, [])
+  const offers = OFFERS
   return (
     <div className="headerWrapper">
       <style>{HEADER_STYLES}</style>
-
-      <div className="announcementBar">
-        <button
-          className="announcementButton"
-          aria-label="Previous offer"
-          onClick={() =>
-            setOfferIndex((prev) => (prev - 1 + offers.length) % offers.length)
-          }
-        >
-          ‹
-        </button>
-        <span className="announcementText">{offers[offerIndex]}</span>
-        <button
-          className="announcementButton"
-          aria-label="Next offer"
-          onClick={() => setOfferIndex((prev) => (prev + 1) % offers.length)}
-        >
-          ›
-        </button>
-      </div>
 
       <header className="header">
         <Link className="brand" to="/">
@@ -299,25 +249,27 @@ export default function Header({ showAuth = true }: HeaderProps) {
 
         <nav className="nav" aria-label="Primary">
           <Link className="navLink" to="/">Home</Link>
-          <Link className="navLink" to="/contact">Contact Us</Link>
+         
 
           <div className="dropdown">
-            <span className="dropdownToggle">Pages ▾</span>
+            <span className="dropdownToggle">Magnets ▾</span>
             <div className="dropdownMenu" role="menu">
-              <Link className="dropdownItem" to="/about">About Us</Link>
-              <Link className="dropdownItem" to="/contact">Contact</Link>
-              <Link className="dropdownItem" to="/faq">FAQ</Link>
+              <Link className="dropdownItem" to="/about">Most Papular</Link>
+              <Link className="dropdownItem" to="/contact">Square Magnets</Link>
+              <Link className="dropdownItem" to="/faq">Round Magnets</Link>
+              <Link className="dropdownItem" to="/faq">Puzzles</Link>
             </div>
           </div>
 
           <div className="dropdown">
-            <span className="dropdownToggle">Shop ▾</span>
+            <span className="dropdownToggle">Collections ▾</span>
             <div className="dropdownMenu" role="menu">
-              <Link className="dropdownItem" to="/shop">All Products</Link>
-              <Link className="dropdownItem" to="/shop/new">New Arrivals</Link>
-              <Link className="dropdownItem" to="/shop/sale">On Sale</Link>
+              <Link className="dropdownItem" to="/shop">School Blade</Link>
+              <Link className="dropdownItem" to="/shop/new">Employee Blade</Link>
+              <Link className="dropdownItem" to="/shop/sale">Navratri Special</Link>
             </div>
           </div>
+           <Link className="navLink" to="/contact">Contact Us</Link>
 
         </nav>
 
@@ -327,7 +279,27 @@ export default function Header({ showAuth = true }: HeaderProps) {
             <input className="searchInput" placeholder="Search For Decor" />
           </div>
           <Link className="iconButton" to="/login" aria-label="Account">👤</Link>
-          <button className="iconButton" aria-label="Cart">🛒</button>
+          <Link className="iconButton" to="/cart" aria-label="Cart" style={{ position: "relative" }}>
+            🛒
+            {cartCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-4px",
+                  right: "-6px",
+                  background: "#111111",
+                  color: "#ffffff",
+                  borderRadius: "999px",
+                  padding: "2px 6px",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  lineHeight: 1,
+                }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </Link>
         </div>
       </header>
     </div>

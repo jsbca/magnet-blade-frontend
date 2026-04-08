@@ -3,9 +3,12 @@ import type { ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Header from './components/user/PrimaryHeader'
 import SecondaryHeader from './components/user/SecondaryHeader'
-import Footer from './components/user/Footer'
+import Footer from './components/e-commerce/Footer'
 import Login from './components/e-commerce/Login'
 import Register from './components/e-commerce/Register'
+import Dashboard from './components/e-commerce/Dashboard'
+import Contact from './components/e-commerce/contact'
+import Cart from './components/user/Cart'
 import AdminDashboard from './components/admin/Dashboard/AdminDashboard'
 import ProductsList from './components/admin/CRUD/product/productslist'
 import OrdersList from './components/admin/CRUD/order/orderslist'
@@ -190,7 +193,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: 'magnet-water-bottle',
-    name: 'Magnet Blade Water Bottle',
+    name: '',
     price: 21.99,
     description: 'Insulated bottle to keep drinks cold for hours.',
     image: b7,
@@ -233,11 +236,28 @@ function formatCurrency(amount: number) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route
+        path="/cart"
+        element={
+          <RequireRole role="user">
+            <Cart />
+          </RequireRole>
+        }
+      />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route
         path="/dashboard"
+        element={
+          <RequireRole role="user">
+            <UserDashboard />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/user"
         element={
           <RequireRole role="user">
             <UserDashboard />
@@ -343,7 +363,7 @@ function RequireRole({ role, children }: RequireRoleProps) {
   const currentRole = storedRole ?? ensureRole()
 
   if (currentRole && currentRole !== role) {
-    const redirect = currentRole === 'admin' ? '/admin' : '/dashboard'
+    const redirect = currentRole === 'admin' ? '/admin' : '/user'
     return <Navigate to={redirect} replace />
   }
 

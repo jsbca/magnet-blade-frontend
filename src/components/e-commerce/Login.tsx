@@ -20,7 +20,7 @@ export default function Login() {
       return
     }
     if (role === "user") {
-      navigate("/dashboard", { replace: true })
+      navigate("/user", { replace: true })
     }
   }, [navigate])
 
@@ -53,7 +53,7 @@ export default function Login() {
 
     //   alert("Login Successful")
 
-      const targetPath = role === "admin" ? "/admin" : "/dashboard"
+      const targetPath = role === "admin" ? "/admin" : "/user"
       navigate(targetPath, { replace: true })   // redirect to role dashboard
 
     } catch (error) {

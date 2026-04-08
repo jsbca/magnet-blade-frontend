@@ -170,6 +170,83 @@ const STYLES = `
   gap: 10px;
 }
 
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 20;
+}
+
+.modalCard {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  padding: 18px;
+}
+
+.modalTitle {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.modalLabel {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.modalInput,
+.modalTextarea {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+}
+
+.modalTextarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modalBtn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+
+.modalBtn.primary {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+}
+
 .actionIcon {
   width: 28px;
   height: 28px;
@@ -269,23 +346,30 @@ export default function Categories() {
   const [rows, setRows] = useState<CategoryRow[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isEditLoading, setIsEditLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [editError, setEditError] = useState("")
+  const [selectedId, setSelectedId] = useState("")
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+
+  const loadCategories = async () => {
+    const token = localStorage.getItem("token")
+    const cleanToken = token ? token.trim().replace(/^"+|"+$/g, "") : ""
+    const res = await fetch("http://localhost:8080/api/categories", {
+      headers: {
+        ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+      },
+    })
+    if (!res.ok) {
+      throw new Error("Failed to load categories")
+    }
+    return res.json()
+  }
 
   useEffect(() => {
     let isMounted = true
-
-    const loadCategories = async () => {
-      const token = localStorage.getItem("token")
-      const cleanToken = token ? token.trim().replace(/^"+|"+$/g, "") : ""
-      const res = await fetch("http://localhost:8080/api/categories", {
-        headers: {
-          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
-        },
-      })
-      if (!res.ok) {
-        throw new Error("Failed to load categories")
-      }
-      return res.json()
-    }
 
     loadCategories()
       .then((data) => {
@@ -310,6 +394,147 @@ export default function Categories() {
       isMounted = false
     }
   }, [])
+
+  const extractDescription = (record: Record<string, unknown>) => {
+    const value =
+      record.description ??
+      record.desc ??
+      record.details ??
+      record.summary ??
+      record.notes ??
+      ""
+    return value ? String(value).trim() : ""
+  }
+
+  const handleOpenEdit = async (id: string) => {
+    setSelectedId(id)
+    setIsEditOpen(true)
+    setIsEditLoading(true)
+    setEditError("")
+
+    try {
+      const token = localStorage.getItem("token")
+      const cleanToken = token ? token.trim().replace(/^"+|"+$/g, "") : ""
+      const res = await fetch(`http://localhost:8080/api/categories/${id}`, {
+        headers: {
+          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+        },
+      })
+      if (!res.ok) {
+        throw new Error("Failed to load category")
+      }
+      const data = await res.json()
+      if (data && typeof data === "object") {
+        const record = data as Record<string, unknown>
+        setEditName(
+          String(
+            record.name ??
+              record.title ??
+              record.category ??
+              record.categoryName ??
+              record.category_name ??
+              ""
+          )
+        )
+        setEditDescription(extractDescription(record))
+      } else {
+        setEditName(String(data ?? ""))
+        setEditDescription("")
+      }
+    } catch (error) {
+      console.error(error)
+      setEditError("Unable to load category details.")
+      setEditName("")
+      setEditDescription("")
+    } finally {
+      setIsEditLoading(false)
+    }
+  }
+
+  const handleCloseEdit = () => {
+    if (isSaving) return
+    setIsEditOpen(false)
+    setSelectedId("")
+    setEditName("")
+    setEditDescription("")
+    setEditError("")
+  }
+
+  const handleUpdateCategory = async () => {
+    if (!selectedId) return
+    if (!editName.trim()) {
+      setEditError("Category name is required.")
+      return
+    }
+
+    setIsSaving(true)
+    setEditError("")
+    try {
+      const token = localStorage.getItem("token")
+      const cleanToken = token ? token.trim().replace(/^"+|"+$/g, "") : ""
+      const payload = {
+        name: editName.trim(),
+        description: editDescription.trim() || undefined,
+      }
+
+      let res = await fetch(`http://localhost:8080/api/categories/${selectedId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (res.status === 405) {
+        res = await fetch(`http://localhost:8080/api/categories/${selectedId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        })
+      }
+
+      if (!res.ok) {
+        throw new Error("Failed to update category")
+      }
+      const data = await loadCategories()
+      setRows(normalizeCategories(data))
+      setIsEditOpen(false)
+      setSelectedId("")
+    } catch (error) {
+      console.error(error)
+      setEditError("Unable to update category.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDeleteCategory = async (id: string) => {
+    const confirmed = window.confirm("Delete this category?")
+    if (!confirmed) return
+
+    try {
+      const token = localStorage.getItem("token")
+      const cleanToken = token ? token.trim().replace(/^"+|"+$/g, "") : ""
+      const res = await fetch(`http://localhost:8080/api/categories/${id}`, {
+        method: "DELETE",
+        headers: {
+          ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+        },
+      })
+      if (!res.ok) {
+        throw new Error("Failed to delete category")
+      }
+      const data = await loadCategories()
+      setRows(normalizeCategories(data))
+    } catch (error) {
+      console.error(error)
+      alert("Unable to delete category.")
+    }
+  }
 
   return (
     <div className="adminPage">
@@ -364,8 +589,20 @@ export default function Categories() {
                       <td className="muted">{row.description || "—"}</td>
                       <td>
                         <span className="actionsCell">
-                          <button className="actionIcon edit" aria-label="Edit">✎</button>
-                          <button className="actionIcon delete" aria-label="Delete">🗑</button>
+                          <button
+                            className="actionIcon edit"
+                            aria-label="Edit"
+                            onClick={() => handleOpenEdit(row.id)}
+                          >
+                            ✎
+                          </button>
+                          <button
+                            className="actionIcon delete"
+                            aria-label="Delete"
+                            onClick={() => handleDeleteCategory(row.id)}
+                          >
+                            🗑
+                          </button>
                         </span>
                       </td>
                     </tr>
@@ -390,6 +627,50 @@ export default function Categories() {
           </div>
         </main>
       </div>
+      {isEditOpen && (
+        <div className="modalOverlay" role="dialog" aria-modal="true">
+          <div className="modalCard">
+            <h3 className="modalTitle">Update category</h3>
+            {isEditLoading ? (
+              <div className="muted">Loading category...</div>
+            ) : (
+              <>
+                <label className="modalField">
+                  <span className="modalLabel">Category name</span>
+                  <input
+                    className="modalInput"
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    placeholder="Category name"
+                  />
+                </label>
+                <label className="modalField">
+                  <span className="modalLabel">Description</span>
+                  <textarea
+                    className="modalTextarea"
+                    value={editDescription}
+                    onChange={(event) => setEditDescription(event.target.value)}
+                    placeholder="Optional description"
+                  />
+                </label>
+                {editError && <div className="muted">{editError}</div>}
+                <div className="modalActions">
+                  <button className="modalBtn" onClick={handleCloseEdit} disabled={isSaving}>
+                    Cancel
+                  </button>
+                  <button
+                    className="modalBtn primary"
+                    onClick={handleUpdateCategory}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? "Updating..." : "Update category"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

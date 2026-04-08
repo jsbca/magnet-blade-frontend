@@ -1,6 +1,5 @@
 import logo from "../../../assets/Logo.png"
 import { Link, useNavigate } from "react-router-dom"
-import { useEffect, useState } from "react"
 import { clearStoredRole } from "../../../utils/auth"
 
 const HEADER_TITLE = "Admin Header"
@@ -24,37 +23,6 @@ const HEADER_STYLES = `
   background-color: #ffffff;
   color: #111827;
   padding: 0 32px;
-}
-
-.announcementBar {
-  width: 100%;
-  background: #8eada2;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.announcementButton {
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  background: transparent;
-  color: #ffffff;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.announcementText {
-  letter-spacing: 0.01em;
 }
 
 .brand {
@@ -236,11 +204,6 @@ const HEADER_STYLES = `
     padding-bottom: 12px;
   }
 
-  .announcementBar {
-    font-size: 12px;
-    gap: 10px;
-  }
-
   .actions {
     width: 100%;
     justify-content: center;
@@ -260,20 +223,7 @@ type HeaderProps = {
 }
 
 export default function Header({ showAuth = true }: HeaderProps) {
-  const offers = [
-    "Chumbak Express - Same day delivery in Bangalore",
-    "Flat 20% off on all home decor orders above ₹999",
-    "Free shipping on prepaid orders this weekend",
-  ]
-  const [offerIndex, setOfferIndex] = useState(0)
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setOfferIndex((prev) => (prev + 1) % offers.length)
-    }, 3500)
-    return () => clearInterval(timer)
-  }, [offers.length])
 
   const handleLogout = () => {
     localStorage.removeItem("token")
@@ -284,26 +234,6 @@ export default function Header({ showAuth = true }: HeaderProps) {
   return (
     <div className="headerWrapper">
       <style>{HEADER_STYLES}</style>
-
-      <div className="announcementBar">
-        <button
-          className="announcementButton"
-          aria-label="Previous offer"
-          onClick={() =>
-            setOfferIndex((prev) => (prev - 1 + offers.length) % offers.length)
-          }
-        >
-          ‹
-        </button>
-        <span className="announcementText">{offers[offerIndex]}</span>
-        <button
-          className="announcementButton"
-          aria-label="Next offer"
-          onClick={() => setOfferIndex((prev) => (prev + 1) % offers.length)}
-        >
-          ›
-        </button>
-      </div>
 
       <header className="header">
         <Link className="brand" to="/">
